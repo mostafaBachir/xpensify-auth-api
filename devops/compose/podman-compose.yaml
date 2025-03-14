@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: auth-db
+    networks:
+      - auth-net
+    volumes:
+      - auth-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Optionnel : Pour les migrations automatisées
+  migrator:
+    image: flyway/flyway:9-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - auth-net
+    volumes:
+      - ./migrations:/flyway/sql
+    command: -url=jdbc:postgresql://postgres:5432/${DB_NAME} -user=${DB_USER} -password=${DB_PASSWORD} -connectRetries=10 migrate
+
+networks:
+  auth-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: "10.90.0.0/24"
+          ip_range: "10.90.0.128/25"
+
+volumes:
+  auth-data:
