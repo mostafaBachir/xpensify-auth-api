@@ -10,46 +10,46 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// 📌 Fonction pour l'inscription d'un utilisateur
+// 📌 Inscription d'un utilisateur
 func RegisterUser(user *models.User) error {
-	// Vérifier si l'email est déjà utilisé
+	// Vérifie si l'email est déjà utilisé
 	var existingUser models.User
 	if err := database.DB.Where("email = ?", user.Email).First(&existingUser).Error; err == nil {
 		return errors.New("email already in use")
 	}
 
-	// Hasher le mot de passe avec bcrypt
+	// Hash du mot de passe
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return errors.New("error hashing password")
 	}
 	user.Password = string(hashedPassword)
 
-	// Sauvegarder l'utilisateur en BDD
+	// Enregistrement en base de données
 	return database.DB.Create(user).Error
 }
 
-// 📌 Fonction pour la connexion utilisateur
+// 📌 Connexion utilisateur
 func LoginUser(email, password string) (string, string, error) {
 	var user models.User
 
-	// Vérifier si l'utilisateur existe
-	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
+	// Charger l'utilisateur avec ses permissions
+	if err := database.DB.Preload("Permissions").Where("email = ?", email).First(&user).Error; err != nil {
 		return "", "", errors.New("invalid email or password")
 	}
 
-	// Vérifier le mot de passe
+	// Vérification du mot de passe
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return "", "", errors.New("invalid email or password")
 	}
 
-	// Générer Access Token & Refresh Token
-	accessToken, refreshToken, err := security.GenerateTokens(user.ID)
+	// Génération des tokens
+	accessToken, refreshToken, err := security.GenerateTokens(user)
 	if err != nil {
 		return "", "", errors.New("could not generate tokens")
 	}
 
-	// Sauvegarde du Refresh Token en BDD
+	// Sauvegarde du Refresh Token
 	user.RefreshToken = refreshToken
 	if err := database.DB.Save(&user).Error; err != nil {
 		return "", "", errors.New("could not save refresh token")
@@ -58,55 +58,52 @@ func LoginUser(email, password string) (string, string, error) {
 	return accessToken, refreshToken, nil
 }
 
-// 📌 Fonction pour rafraîchir un token expiré
+// 📌 Rafraîchissement de token
 func RefreshUserToken(refreshToken string) (string, string, error) {
-	// 📌 Vérifier et parser le Refresh Token
+	// Valider le Refresh Token
 	token, err := security.ParseRefreshToken(refreshToken)
 	if err != nil {
 		return "", "", errors.New("invalid refresh token")
 	}
 
-	// 📌 Extraire les claims (payload du token)
-	claims, ok := token.Claims.(jwt.MapClaims) // ✅ Correction ici
+	// Extraire les claims
+	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return "", "", errors.New("invalid token claims")
 	}
 
-	// 📌 Récupérer l'ID utilisateur
+	// Récupérer l'utilisateur
 	userID := uint(claims["user_id"].(float64))
 	var user models.User
-
-	// 📌 Vérifier si l'utilisateur existe et si le token correspond à celui en BDD
-	if err := database.DB.First(&user, userID).Error; err != nil || user.RefreshToken != refreshToken {
+	if err := database.DB.Preload("Permissions").First(&user, userID).Error; err != nil || user.RefreshToken != refreshToken {
 		return "", "", errors.New("invalid refresh token")
 	}
 
-	// 📌 Générer un nouveau couple de tokens
-	accessToken, newRefreshToken, err := security.GenerateTokens(userID)
+	// Générer les nouveaux tokens
+	accessToken, newRefreshToken, err := security.GenerateTokens(user)
 	if err != nil {
 		return "", "", errors.New("could not generate new tokens")
 	}
 
-	// 📌 Mettre à jour le Refresh Token en base de données
+	// Mettre à jour en BDD
 	user.RefreshToken = newRefreshToken
 	database.DB.Save(&user)
 
 	return accessToken, newRefreshToken, nil
 }
 
-// 📌 Fonction pour la déconnexion (révocation du Refresh Token)
+// 📌 Déconnexion
 func LogoutUser(userID uint) error {
 	var user models.User
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		return errors.New("user not found")
 	}
 
-	// Supprimer le Refresh Token en base de données
 	user.RefreshToken = ""
 	return database.DB.Save(&user).Error
 }
 
-// 📌 Fonction pour récupérer un utilisateur par son ID
+// 📌 Récupérer un utilisateur par son ID
 func GetUserByID(userID uint) (*models.User, error) {
 	var user models.User
 	if err := database.DB.First(&user, userID).Error; err != nil {
