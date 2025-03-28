@@ -4,14 +4,15 @@ import (
 	"auth-service/models"
 	"fmt"
 	"log"
+	"os"
 
+	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
 
-// InitDB initialise la base avec migration automatique (main.go)
 func InitDB() *gorm.DB {
 	db := connect()
 	DB = db
@@ -19,7 +20,6 @@ func InitDB() *gorm.DB {
 	return db
 }
 
-// InitDBWithoutAutoMigrate utilisée dans le seed
 func InitDBWithoutAutoMigrate() *gorm.DB {
 	db := connect()
 	DB = db
@@ -27,11 +27,10 @@ func InitDBWithoutAutoMigrate() *gorm.DB {
 	return db
 }
 
-// AutoMigrateModels applique les migrations dans le bon ordre
 func AutoMigrateModels(db *gorm.DB) {
 	err := db.AutoMigrate(
-		&models.User{},    // 🔑 FK dans Permission
-		&models.Service{}, // 🔑 FK dans Permission
+		&models.User{},
+		&models.Service{},
 		&models.Permission{},
 	)
 	if err != nil {
@@ -40,11 +39,22 @@ func AutoMigrateModels(db *gorm.DB) {
 	fmt.Println("✅ Migration exécutée avec succès.")
 }
 
-// connect établit la connexion GORM
 func connect() *gorm.DB {
+	// Charger le fichier .env
+	if err := godotenv.Load(); err != nil {
+		log.Println("⚠️  Aucun fichier .env trouvé, on utilise les variables d'environnement système.")
+	}
+
+	// Lire les variables d'env
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		"localhost", "11002", "bachir", "rapido31", "auth_service",
+		host, port, user, password, dbname,
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
