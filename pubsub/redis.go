@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"auth-service/config"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,12 +13,22 @@ var ctx = context.Background()
 var Rdb *redis.Client
 
 func InitRedis() {
+	redisHost := config.Get("redis-host")     // ex: xpensify-redis.redis.cache.windows.net:6379
+	redisPass := config.Get("redis-password") // fourni dans Azure -> Clés d'accès
+
 	Rdb = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379", // à adapter si tu as un container ou une URL externe
-		Password: "",               // si protégé, mets ton mot de passe ici
+		Addr:     redisHost,
+		Password: redisPass,
 		DB:       0,
 	})
-	fmt.Println("🔗 Redis client initialized")
+
+	// Test connexion
+	_, err := Rdb.Ping(ctx).Result()
+	if err != nil {
+		panic(fmt.Sprintf("❌ Erreur de connexion à Redis : %v", err))
+	}
+
+	fmt.Println("🔗 Redis connecté à Azure avec succès")
 }
 
 func PublishPermissionUpdate(userID string, permissions []string) error {
@@ -36,6 +47,6 @@ func PublishPermissionUpdate(userID string, permissions []string) error {
 		return err
 	}
 
-	fmt.Printf("📣 Published permission update for user %s: %v\n", userID, permissions)
+	fmt.Printf("📣 Permission update envoyée pour user %s: %v\n", userID, permissions)
 	return nil
 }

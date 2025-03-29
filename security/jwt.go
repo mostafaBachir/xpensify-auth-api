@@ -1,17 +1,54 @@
 package security
 
 import (
+	"auth-service/config"
 	"auth-service/database"
 	"auth-service/models"
 	"errors"
-	"os"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var secretKey = []byte(os.Getenv("JWT_SECRET"))
-var RefreshSecretKey = []byte(os.Getenv("JWT_REFRESH_SECRET"))
+// 🔑 Lecture centralisée des secrets JWT
+var (
+	accessSecretKey  = []byte(config.Get("jwt-access-secret"))
+	refreshSecretKey = []byte(config.Get("jwt-refresh-secret"))
+)
+
+// 🔐 Middleware JWT : vérifie le token et injecte les claims dans ctx
+func JWTMiddleware(c *fiber.Ctx) error {
+	authHeader := c.Get("Authorization")
+	if authHeader == "" || len(authHeader) < 7 {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing or invalid token"})
+	}
+
+	tokenStr := authHeader[7:] // Supprimer "Bearer "
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("invalid signing method")
+		}
+		return accessSecretKey, nil
+	})
+
+	if err != nil || !token.Valid {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "unauthorized"})
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token claims"})
+	}
+
+	// Injecter les claims dans le contexte
+	c.Locals("user_id", uint(claims["user_id"].(float64)))
+	c.Locals("email", claims["email"])
+	c.Locals("role", claims["role"])
+	c.Locals("permissions", claims["permissions"])
+
+	return c.Next()
+}
 
 // 🔐 Génère access + refresh token avec les permissions intégrées
 func GenerateTokens(user models.User) (string, string, error) {
@@ -21,7 +58,7 @@ func GenerateTokens(user models.User) (string, string, error) {
 		return "", "", err
 	}
 
-	// 🔁 Transformer les permissions en structure simple
+	// Mapper les permissions
 	var perms []map[string]string
 	for _, perm := range permissions {
 		perms = append(perms, map[string]string{
@@ -36,10 +73,10 @@ func GenerateTokens(user models.User) (string, string, error) {
 		"email":       user.Email,
 		"role":        user.Role,
 		"permissions": perms,
-		"exp":         time.Now().Add(time.Minute * 15).Unix(),
+		"exp":         time.Now().Add(15 * time.Minute).Unix(),
 	}
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessTokenString, err := accessToken.SignedString(secretKey)
+	accessTokenString, err := accessToken.SignedString(accessSecretKey)
 	if err != nil {
 		return "", "", err
 	}
@@ -50,7 +87,7 @@ func GenerateTokens(user models.User) (string, string, error) {
 		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 	}
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshTokenString, err := refreshToken.SignedString(RefreshSecretKey)
+	refreshTokenString, err := refreshToken.SignedString(refreshSecretKey)
 	if err != nil {
 		return "", "", err
 	}
@@ -58,22 +95,22 @@ func GenerateTokens(user models.User) (string, string, error) {
 	return accessTokenString, refreshTokenString, nil
 }
 
-// 🔍 Parse & vérifie un refresh token
-func ParseRefreshToken(refreshToken string) (*jwt.Token, error) {
-	token, err := jwt.Parse(refreshToken, func(token *jwt.Token) (interface{}, error) {
-		// Signature HMAC requise
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("Méthode de signature invalide")
+// 🔍 Parse un refresh token
+func ParseRefreshToken(tokenStr string) (*jwt.Token, error) {
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("invalid signing method")
 		}
-		return RefreshSecretKey, nil
+		return refreshSecretKey, nil
 	})
 
 	if err != nil || !token.Valid {
-		return nil, errors.New("Refresh token invalide ou expiré")
+		return nil, errors.New("refresh token invalide ou expiré")
 	}
-
 	return token, nil
 }
+
+// 🔎 Récupérer les permissions en base
 func getPermissions(userID uint) ([]models.Permission, error) {
 	var permissions []models.Permission
 	err := database.DB.Where("user_id = ?", userID).Find(&permissions).Error

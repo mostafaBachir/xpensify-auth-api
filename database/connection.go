@@ -1,12 +1,11 @@
 package database
 
 import (
+	"auth-service/config"
 	"auth-service/models"
 	"fmt"
 	"log"
-	"os"
 
-	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -40,20 +39,15 @@ func AutoMigrateModels(db *gorm.DB) {
 }
 
 func connect() *gorm.DB {
-	// Charger le fichier .env
-	if err := godotenv.Load(); err != nil {
-		log.Println("⚠️  Aucun fichier .env trouvé, on utilise les variables d'environnement système.")
-	}
-
-	// Lire les variables d'env
-	host := os.Getenv("DB_HOST")
-	port := os.Getenv("DB_PORT")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
+	// Lecture via Key Vault-compatible noms (avec tirets)
+	host := config.Get("pg-db-host")
+	port := config.Get("pg-db-port")
+	user := config.Get("pg-db-user")
+	password := config.Get("pg-db-password")
+	dbname := config.Get("pg-db-name")
 
 	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
 		host, port, user, password, dbname,
 	)
 

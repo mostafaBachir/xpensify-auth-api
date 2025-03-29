@@ -1,32 +1,35 @@
 package main
 
 import (
+	"auth-service/config"
 	"auth-service/database"
 	"auth-service/pubsub"
 	"auth-service/routes"
+	"auth-service/security"
 	"log"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 func main() {
 	app := fiber.New()
-	// Active CORS avec configuration
-	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:3001, http://127.0.0.1:3001, http://192.168.0.99:3001",
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
-		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
-		AllowCredentials: true,
-	}))
+
+	// 🔐 Middleware CORS
+	app.Use(security.CorsMiddleware())
+
+	// 🔌 Init Redis PubSub
 	pubsub.InitRedis()
 
-	// 📌 Initialiser la base de données
+	// 🗄️ Init DB
 	database.InitDB()
 
-	// 📌 Définir les routes
+	// 🚦 Définir les routes
 	routes.SetupRoutes(app)
 
-	// 📌 Démarrer le serveur
-	log.Fatal(app.Listen(":8001"))
+	// 🚀 Démarrer le serveur
+	port := config.Get("auth-service-port")
+	if port == "" {
+		port = "8001"
+	}
+	log.Fatal(app.Listen(":" + port))
 }

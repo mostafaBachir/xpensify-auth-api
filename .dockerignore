@@ -1,0 +1,17 @@
+# Cache Go
+**/__pycache__/
+*.pyc
+vendor/
+bin/
+*.test
+*.out
+*.log
+
+# Git
+.git
+.gitignore
+
+# Dev files
+*.env
+*.DS_Store
+devops/

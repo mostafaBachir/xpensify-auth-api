@@ -9,5 +9,5 @@ type User struct {
 	Password     string       `json:"-"`
 	RefreshToken string       `json:"-"`
 	Role         string       `json:"role" gorm:"not null;default:'user'"`
-	Permissions  []Permission `json:"permissions" gorm:"foreignKey:UserID"` // 🟢 Relation simple et safe
+	Permissions  []Permission `json:"permissions" gorm:"foreignKey:UserID"`
 }

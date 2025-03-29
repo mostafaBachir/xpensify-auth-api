@@ -1,4 +1,3 @@
-// devops/compose/migrations/seed.go
 package main
 
 import (
@@ -6,6 +5,7 @@ import (
 	"auth-service/models"
 	"auth-service/security"
 	"fmt"
+	"log"
 )
 
 func main() {
@@ -13,15 +13,17 @@ func main() {
 
 	db := database.InitDBWithoutAutoMigrate()
 
-	// 🔥 Drop & AutoMigrate dans l'ordre logique
-	_ = db.Migrator().DropTable(&models.Permission{}, &models.Service{}, &models.User{})
+	// 🔥 Drop & AutoMigrate
+	if err := db.Migrator().DropTable(&models.Permission{}, &models.Service{}, &models.User{}); err != nil {
+		log.Fatalf("❌ Échec lors du drop des tables : %v", err)
+	}
 	database.AutoMigrateModels(db)
 
 	// 👑 Superutilisateur
 	superuser := models.User{
 		Name:         "Bachir Mostafa",
 		Email:        "mostafa.bachir@gmail.com",
-		Password:     mustHash("rapido31"),
+		Password:     mustHash("rapido31"), // 💡 à passer via env plus tard
 		Role:         "superuser",
 		RefreshToken: "",
 	}
@@ -45,13 +47,12 @@ func main() {
 		db.Create(&s)
 	}
 
-	// 🗺️ Récupération dynamique des services pour ServiceID (nom logique)
-	receiptService := models.Service{}
-	dashboardService := models.Service{}
+	// 🔁 Récupération dynamique des services
+	var receiptService, dashboardService models.Service
 	db.Where("name = ?", "Xpensify Receipt API").First(&receiptService)
 	db.Where("name = ?", "Xpensify Dashboard").First(&dashboardService)
 
-	// 🔐 Permissions avec ServiceID logique (string)
+	// 🔐 Permissions
 	permissions := []models.Permission{
 		{UserID: 1, ServiceID: fmt.Sprintf("%d", receiptService.ID), Action: "read"},
 		{UserID: 1, ServiceID: fmt.Sprintf("%d", receiptService.ID), Action: "write"},
