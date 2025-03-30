@@ -12,6 +12,6 @@ bin/
 .gitignore
 
 # Dev files
-*.env
+#*.env
 *.DS_Store
 devops/
