@@ -1,27 +1,38 @@
 trigger:
-- main
-
-pool:
-  name: Default  # 👈 Ton agent auto-hébergé local
+  - main
 
 variables:
-  IMAGE_NAME: xpensifyacr.azurecr.io/xpensify-auth-api
-  TAG: v1
+  imageName: xpensify-auth-api
+  acrName: xpensifyacr.azurecr.io
+  dockerfilePath: $(Build.SourcesDirectory)/Dockerfile
+  tag: v1
 
-steps:
-  - script: |
-      echo "📦 Build de l'image Docker : $(IMAGE_NAME):$(TAG)"
-      docker build -t $(IMAGE_NAME):$(TAG) .
-    displayName: "🐳 Build Docker image"
+stages:
+  - stage: BuildAndPush
+    displayName: 📦 Build & Push Docker image
+    jobs:
+      - job: DockerJob
+        displayName: 🔨 Docker build & push
+        pool:
+          vmImage: ubuntu-latest
 
-  - script: |
-      echo "🔐 Connexion à Azure Container Registry"
-      echo "$REGISTRY_PASSWORD" | docker login xpensifyacr.azurecr.io -u xpensifyacr --password-stdin
-    displayName: "🔐 Docker Login"
-    env:
-      REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+        steps:
+          - checkout: self
 
-  - script: |
-      echo "🚀 Push de l'image vers ACR"
-      docker push $(IMAGE_NAME):$(TAG)
-    displayName: "🚀 Push Docker image"
+          - task: AzureKeyVault@2
+            name: LoadSecrets
+            inputs:
+              azureSubscription: 'xpensify-azure-rm'
+              KeyVaultName: 'xpensify-vault'
+              SecretsFilter: '*'
+              RunAsPreJob: true
+
+          - task: Docker@2
+            displayName: 🐳 Build & push Docker image
+            inputs:
+              containerRegistry: 'xpensifyacr' # nom du service connection ACR dans Azure DevOps
+              repository: $(imageName)
+              command: buildAndPush
+              Dockerfile: $(dockerfilePath)
+              tags: |
+                $(tag)
