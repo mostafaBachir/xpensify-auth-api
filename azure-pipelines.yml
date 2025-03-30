@@ -1,38 +1,42 @@
 trigger:
-  - main
+- main
+
+resources:
+- repo: self
 
 variables:
-  imageName: xpensify-auth-api
-  acrName: xpensifyacr.azurecr.io
-  dockerfilePath: $(Build.SourcesDirectory)/Dockerfile
-  tag: v1
+  imageRepository: 'xpensify-auth-api'
+  containerRegistry: 'xpensifyacr.azurecr.io'
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  tag: 'v1'
 
 stages:
-  - stage: BuildAndPush
-    displayName: 📦 Build & Push Docker image
-    jobs:
-      - job: DockerJob
-        displayName: 🔨 Docker build & push
-        pool:
-          name: default  # ✅ Utilise ton agent auto-hébergé
+- stage: BuildAndPush
+  displayName: 🐳 Build & Push Docker Image
+  jobs:
+  - job: Build
+    displayName: 📦 Build Job
+    pool:
+      name: default  # 👈 Ton agent auto-hébergé
+    steps:
+    - checkout: self
 
-        steps:
-          - checkout: self
+    - task: AzureCLI@2
+      displayName: 🔐 Docker Login to ACR
+      inputs:
+        azureSubscription: 'xpensify-azure-rm'  # Ce service connection est OK pour AzureCLI
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "🔐 Connexion à ACR..."
+          az acr login --name xpensifyacr
 
-          - task: AzureKeyVault@2
-            name: LoadSecrets
-            inputs:
-              azureSubscription: 'xpensify-azure-rm'   # 👉 Ton service connection Azure Resource Manager
-              KeyVaultName: 'xpensify-vault'
-              SecretsFilter: '*'
-              RunAsPreJob: true
+    - script: |
+        echo "📦 Construction de l'image..."
+        docker build -f $(dockerfilePath) -t $(containerRegistry)/$(imageRepository):$(tag) .
+      displayName: 🏗️ Docker Build
 
-          - task: Docker@2
-            displayName: 🐳 Build & push Docker image
-            inputs:
-              containerRegistry: 'xpensifyacr'         # 👉 Nom du service connection ACR dans Azure DevOps
-              repository: $(imageName)
-              command: buildAndPush
-              Dockerfile: $(dockerfilePath)
-              tags: |
-                $(tag)
+    - script: |
+        echo "📤 Push de l'image vers ACR..."
+        docker push $(containerRegistry)/$(imageRepository):$(tag)
+      displayName: 🚀 Docker Push
