@@ -14,7 +14,7 @@ stages:
       - job: DockerJob
         displayName: 🔨 Docker build & push
         pool:
-          vmImage: ubuntu-latest
+          name: default  # ✅ Utilise ton agent auto-hébergé
 
         steps:
           - checkout: self
@@ -22,7 +22,7 @@ stages:
           - task: AzureKeyVault@2
             name: LoadSecrets
             inputs:
-              azureSubscription: 'xpensify-azure-rm'
+              azureSubscription: 'xpensify-azure-rm'   # 👉 Ton service connection Azure Resource Manager
               KeyVaultName: 'xpensify-vault'
               SecretsFilter: '*'
               RunAsPreJob: true
@@ -30,7 +30,7 @@ stages:
           - task: Docker@2
             displayName: 🐳 Build & push Docker image
             inputs:
-              containerRegistry: 'xpensifyacr' # nom du service connection ACR dans Azure DevOps
+              containerRegistry: 'xpensifyacr'         # 👉 Nom du service connection ACR dans Azure DevOps
               repository: $(imageName)
               command: buildAndPush
               Dockerfile: $(dockerfilePath)
