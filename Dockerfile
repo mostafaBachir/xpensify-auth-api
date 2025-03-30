@@ -18,6 +18,9 @@ RUN apk --no-cache add ca-certificates && \
 
 COPY --from=builder --chown=appuser:appuser /app/main /app/main
 
+# ✅ Copie du fichier .env
+COPY --chown=appuser:appuser .env .env
+
 USER appuser
 EXPOSE 8001
 CMD ["/app/main"]
