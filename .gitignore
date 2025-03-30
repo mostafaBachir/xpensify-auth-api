@@ -1,7 +1,7 @@
 # Environnement
-.env
-*.env.local
-.envrc
+#.env
+#*.env.local
+#.envrc
 
 # Binaires
 /bin/
