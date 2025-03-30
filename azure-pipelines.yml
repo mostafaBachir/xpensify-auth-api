@@ -1,32 +1,27 @@
 trigger:
 - main
 
-resources:
-- repo: self
+pool:
+  name: Default  # 👈 Ton agent auto-hébergé local
 
 variables:
-  # Azure Container Registry
-  dockerRegistryServiceConnection: '84903840-f720-4b0e-a7f4-396182de5435'
-  containerRegistry: 'xpensifyacr.azurecr.io'
-  imageRepository: 'xpensify-auth-api'
-  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
-  tag: 'v1'
+  IMAGE_NAME: xpensifyacr.azurecr.io/xpensify-auth-api
+  TAG: v1
 
-stages:
-- stage: Build
-  displayName: 🔧 Build and Push Docker Image
-  jobs:
-  - job: DockerBuild
-    displayName: 🐳 Build & Push to ACR
-    pool:
-      name: Default # 👈 agent auto-hébergé (ta machine)
-    steps:
-    - task: Docker@2
-      displayName: 📦 Build & Push image to ACR
-      inputs:
-        command: buildAndPush
-        containerRegistry: $(dockerRegistryServiceConnection)
-        repository: $(imageRepository)
-        dockerfile: $(dockerfilePath)
-        tags: |
-          $(tag)
+steps:
+  - script: |
+      echo "📦 Build de l'image Docker : $(IMAGE_NAME):$(TAG)"
+      docker build -t $(IMAGE_NAME):$(TAG) .
+    displayName: "🐳 Build Docker image"
+
+  - script: |
+      echo "🔐 Connexion à Azure Container Registry"
+      echo "$REGISTRY_PASSWORD" | docker login xpensifyacr.azurecr.io -u xpensifyacr --password-stdin
+    displayName: "🔐 Docker Login"
+    env:
+      REGISTRY_PASSWORD: $(REGISTRY_PASSWORD)
+
+  - script: |
+      echo "🚀 Push de l'image vers ACR"
+      docker push $(IMAGE_NAME):$(TAG)
+    displayName: "🚀 Push Docker image"
