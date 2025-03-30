@@ -9,7 +9,7 @@ import (
 
 // CorsMiddleware retourne une config CORS basée sur le .env
 func CorsMiddleware() fiber.Handler {
-	allowOrigins := os.Getenv("ALLOWED_ORIGINS")
+	allowOrigins := os.Getenv("allowed-origins")
 	if allowOrigins == "" {
 		allowOrigins = "*" // fallback si non défini
 	}
