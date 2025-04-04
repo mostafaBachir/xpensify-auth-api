@@ -13,9 +13,9 @@ func CorsMiddleware() fiber.Handler {
 	}
 
 	return cors.New(cors.Config{
-		AllowOrigins:     allowOrigins,
+		AllowOrigins:     "http://localhost:3001,https://www.xpensify.ca",
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
-		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
-		AllowCredentials: false,
+		AllowCredentials: true,
 	})
 }
