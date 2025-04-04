@@ -7,15 +7,15 @@ import (
 
 // CorsMiddleware retourne une config CORS basée sur le .env
 func CorsMiddleware() fiber.Handler {
-	allowOrigins := "*"
+	allowOrigins := "https://*.xpensify.ca,http://localhost:3001"
 	if allowOrigins == "" {
 		allowOrigins = "*" // fallback si non défini
 	}
 
 	return cors.New(cors.Config{
-		AllowOrigins:     "*",
-		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowOrigins:     allowOrigins,
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
 	})
 }
