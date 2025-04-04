@@ -1,0 +1,7 @@
+{
+  "type": "USER_PERMISSION_UPDATED",
+  "user_id": "abcd-1234",
+  "details": {
+    "new_roles": ["viewer", "receipt-reader"]
+  }
+}

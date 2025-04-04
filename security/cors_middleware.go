@@ -1,15 +1,13 @@
 package security
 
 import (
-	"auth-service/config"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 // CorsMiddleware retourne une config CORS basée sur le .env
 func CorsMiddleware() fiber.Handler {
-	allowOrigins := config.Get("allowed-origins")
+	allowOrigins := "*"
 	if allowOrigins == "" {
 		allowOrigins = "*" // fallback si non défini
 	}
@@ -18,6 +16,6 @@ func CorsMiddleware() fiber.Handler {
 		AllowOrigins:     allowOrigins,
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
-		AllowCredentials: true,
+		AllowCredentials: false,
 	})
 }
