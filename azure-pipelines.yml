@@ -1,14 +1,13 @@
 trigger:
-- main
-
-resources:
-- repo: self
+  branches:
+    include:
+      - main
 
 variables:
   imageRepository: 'xpensify-auth-api'
   containerRegistry: 'xpensifyacr.azurecr.io'
   dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
-  tag: 'v1'
+  tag: 'v1-$(Build.BuildId)'
 
 stages:
 - stage: BuildAndPush
@@ -17,14 +16,14 @@ stages:
   - job: Build
     displayName: 📦 Build Job
     pool:
-      name: default  # 👈 Ton agent auto-hébergé
+      name: default
     steps:
     - checkout: self
 
     - task: AzureCLI@2
       displayName: 🔐 Docker Login to ACR
       inputs:
-        azureSubscription: 'xpensify-azure-rm'  # Ce service connection est OK pour AzureCLI
+        azureSubscription: 'xpensify-azure-rm'
         scriptType: bash
         scriptLocation: inlineScript
         inlineScript: |
@@ -32,11 +31,18 @@ stages:
           az acr login --name xpensifyacr
 
     - script: |
-        echo "📦 Construction de l'image..."
+        echo "🏗️ Construction Docker..."
         docker build --no-cache -f $(dockerfilePath) -t $(containerRegistry)/$(imageRepository):$(tag) .
-      displayName: 🏗️ Docker Build
+      displayName: 🛠 Docker Build
 
     - script: |
-        echo "📤 Push de l'image vers ACR..."
+        echo "📤 Push vers ACR..."
         docker push $(containerRegistry)/$(imageRepository):$(tag)
       displayName: 🚀 Docker Push
+
+    - task: AzureWebAppContainer@1
+      displayName: 🌐 Déploiement Azure Web App
+      inputs:
+        azureSubscription: 'xpensify-azure-rm'
+        appName: 'xpensify-auth-api'
+        containers: '$(containerRegistry)/$(imageRepository):$(tag)'
