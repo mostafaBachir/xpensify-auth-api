@@ -9,7 +9,7 @@ import (
 func CorsMiddleware() fiber.Handler {
 
 	return cors.New(cors.Config{
-		AllowOrigins:     "https://www.xpensify.ca",
+		AllowOrigins:     "https://*.xpensify.ca",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
 		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
