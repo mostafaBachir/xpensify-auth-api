@@ -3,11 +3,14 @@ trigger:
     include:
       - main
 
+resources:
+- repo: self
+
 variables:
   imageRepository: 'xpensify-auth-api'
   containerRegistry: 'xpensifyacr.azurecr.io'
   dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
-  tag: 'v1-$(Build.BuildId)'
+  tag: 'v1-$(Build.BuildId)'  # ✅ tag unique à chaque build
 
 stages:
 - stage: BuildAndPush
@@ -31,18 +34,24 @@ stages:
           az acr login --name xpensifyacr
 
     - script: |
-        echo "🏗️ Construction Docker..."
+        echo "🏗️ Build image: $(containerRegistry)/$(imageRepository):$(tag)"
         docker build --no-cache -f $(dockerfilePath) -t $(containerRegistry)/$(imageRepository):$(tag) .
       displayName: 🛠 Docker Build
 
     - script: |
-        echo "📤 Push vers ACR..."
+        echo "📤 Push image: $(containerRegistry)/$(imageRepository):$(tag)"
         docker push $(containerRegistry)/$(imageRepository):$(tag)
       displayName: 🚀 Docker Push
 
-    - task: AzureWebAppContainer@1
-      displayName: 🌐 Déploiement Azure Web App
+    - task: AzureCLI@2
+      displayName: 🌐 Deploy to Azure Container App (auth-service)
       inputs:
         azureSubscription: 'xpensify-azure-rm'
-        appName: 'xpensify-auth-api'
-        containers: '$(containerRegistry)/$(imageRepository):$(tag)'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          echo "🚀 Deploy image to Container App..."
+          az containerapp update \
+            --name auth-service \
+            --resource-group BachirPro \
+            --image $(containerRegistry)/$(imageRepository):$(tag)
