@@ -33,7 +33,7 @@ stages:
 
     - script: |
         echo "📦 Construction de l'image..."
-        docker build -f $(dockerfilePath) -t $(containerRegistry)/$(imageRepository):$(tag) .
+        docker build --no-cache -f $(dockerfilePath) -t $(containerRegistry)/$(imageRepository):$(tag) .
       displayName: 🏗️ Docker Build
 
     - script: |
