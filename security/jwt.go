@@ -11,20 +11,19 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// 🔑 Lecture centralisée des secrets JWT
+// 🔐 Clé JWT hardcodée pour access, dynamique pour refresh
 var (
-	accessSecretKey  = []byte(config.Get("jwt-access-secret"))
-	refreshSecretKey = []byte(config.Get("jwt-refresh-secret"))
+	accessSecretKey  = []byte("YE9VyAXcifVvO1o0G1uVgE7j3U9d5z+xRf9kl06m/RU=") // ⬅️ hardcoded ici
+	refreshSecretKey = []byte(config.Get("jwt-refresh-secret"))               // ⬅️ toujours dynamique
 )
 
-// 🔐 Middleware JWT : vérifie le token et injecte les claims dans ctx
 func JWTMiddleware(c *fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 	if authHeader == "" || len(authHeader) < 7 {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing or invalid token"})
 	}
 
-	tokenStr := authHeader[7:] // Supprimer "Bearer "
+	tokenStr := authHeader[7:]
 	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("invalid signing method")
@@ -41,7 +40,6 @@ func JWTMiddleware(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token claims"})
 	}
 
-	// Injecter les claims dans le contexte
 	c.Locals("user_id", uint(claims["user_id"].(float64)))
 	c.Locals("email", claims["email"])
 	c.Locals("role", claims["role"])
@@ -50,15 +48,12 @@ func JWTMiddleware(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-// 🔐 Génère access + refresh token avec les permissions intégrées
 func GenerateTokens(user models.User) (string, string, error) {
-	// Charger les permissions
 	permissions, err := getPermissions(user.ID)
 	if err != nil {
 		return "", "", err
 	}
 
-	// Mapper les permissions
 	var perms []map[string]string
 	for _, perm := range permissions {
 		perms = append(perms, map[string]string{
@@ -67,7 +62,7 @@ func GenerateTokens(user models.User) (string, string, error) {
 		})
 	}
 
-	// 🎫 Access token (15 minutes)
+	// 🎫 Access token
 	accessClaims := jwt.MapClaims{
 		"user_id":     user.ID,
 		"email":       user.Email,
@@ -81,7 +76,7 @@ func GenerateTokens(user models.User) (string, string, error) {
 		return "", "", err
 	}
 
-	// 🔁 Refresh token (7 jours)
+	// 🔁 Refresh token
 	refreshClaims := jwt.MapClaims{
 		"user_id": user.ID,
 		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
@@ -95,7 +90,6 @@ func GenerateTokens(user models.User) (string, string, error) {
 	return accessTokenString, refreshTokenString, nil
 }
 
-// 🔍 Parse un refresh token
 func ParseRefreshToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -110,7 +104,6 @@ func ParseRefreshToken(tokenStr string) (*jwt.Token, error) {
 	return token, nil
 }
 
-// 🔎 Récupérer les permissions en base
 func getPermissions(userID uint) ([]models.Permission, error) {
 	var permissions []models.Permission
 	err := database.DB.Where("user_id = ?", userID).Find(&permissions).Error
