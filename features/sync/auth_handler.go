@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"auth-service/config"
 	"auth-service/models"
 	"auth-service/services"
 
@@ -66,6 +67,9 @@ func Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
+		"jwt_secret":    config.Get("jwt-access-secret"),
+		// ou config.Get("jwt-access-secret")
+
 	})
 }
 
