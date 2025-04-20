@@ -24,7 +24,7 @@ vendor/
 .vscode/
 *.swp
 *.swo
-
+.env
 # Docker/K8s
 **/docker-compose.override.yml
 **/secrets/
