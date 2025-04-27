@@ -1,11 +1,13 @@
 package database
 
 import (
-	"auth-service/config"
 	"auth-service/models"
+	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
+	_ "github.com/lib/pq" // Driver pur pour sql.Open
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -39,15 +41,16 @@ func AutoMigrateModels(db *gorm.DB) {
 }
 
 func connect() *gorm.DB {
-	// Lecture via Key Vault-compatible noms (avec tirets)
-	host := config.Get("pg-db-host")
-	port := config.Get("pg-db-port")
-	user := config.Get("pg-db-user")
-	password := config.Get("pg-db-password")
-	dbname := config.Get("pg-db-name")
+	createDatabaseIfNotExists()
+
+	host := os.Getenv("PG_DB_HOST")
+	port := os.Getenv("PG_DB_PORT")
+	user := os.Getenv("PG_DB_USER")
+	password := os.Getenv("PG_DB_PASSWORD")
+	dbname := os.Getenv("PG_DB_NAME")
 
 	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname,
 	)
 
@@ -55,5 +58,42 @@ func connect() *gorm.DB {
 	if err != nil {
 		log.Fatal("❌ Erreur de connexion à la base de données :", err)
 	}
+	fmt.Println("✅ Connexion à la base réussie :", dbname)
 	return db
+}
+
+func createDatabaseIfNotExists() {
+	host := os.Getenv("PG_DB_HOST")
+	port := os.Getenv("PG_DB_PORT")
+	user := os.Getenv("PG_DB_USER")
+	password := os.Getenv("PG_DB_PASSWORD")
+	dbname := os.Getenv("PG_DB_NAME")
+
+	postgresDSN := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=postgres sslmode=disable",
+		host, port, user, password,
+	)
+
+	db, err := sql.Open("postgres", postgresDSN)
+	if err != nil {
+		log.Fatal("❌ Erreur connexion Postgres (postgres db) :", err)
+	}
+	defer db.Close()
+
+	var exists bool
+	query := "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)"
+	err = db.QueryRow(query, dbname).Scan(&exists)
+	if err != nil {
+		log.Fatal("❌ Erreur vérification existence DB :", err)
+	}
+
+	if !exists {
+		_, err = db.Exec("CREATE DATABASE " + dbname)
+		if err != nil {
+			log.Fatal("❌ Erreur création base :", err)
+		}
+		fmt.Println("✅ Base de données créée :", dbname)
+	} else {
+		fmt.Println("ℹ️ Base de données déjà existante :", dbname)
+	}
 }
